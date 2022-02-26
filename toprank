@@ -1,0 +1,112 @@
+#!/usr/bin/python3
+
+import sqlite3,sys,string
+
+#Add error checking for whether or not inputs are in correct order 
+def create_genre_list():
+  if sys.argv[1] == "":
+    return None
+  else:
+    genre = sys.argv[1].lower().strip("").split('&')
+    for entry in genre:
+      if entry == '':
+        genre.remove(entry)
+    return genre
+
+def process_min_rating():
+  rating = None
+  try:
+    rating = round(float(sys.argv[2]),1)
+    return rating
+    
+  except Exception as imdb_rating_err:
+    print("Invalid imdb rating given:",imdb_rating_err)
+    sys.exit(1)
+
+def create__genre_statements(genres_list):
+  initial_statement = f'''
+    AND m.id in (SELECT g.movie_id FROM genre g WHERE lower(g.genre) = '{genres_list[0]}' '''
+  if len(genres_list) == 1:
+    return initial_statement + ')'
+  else:
+    combined_genres = initial_statement
+    for genre in genres_list[1:]:
+      extra_statement = f'''
+    INTERSECT
+    SELECT g.movie_id from genre g WHERE lower(g.genre) = '{genre}' '''
+      combined_genres += extra_statement
+    return combined_genres +')'
+
+
+def get_movies_list(connection,genres,min_score):
+  find_movies_cursor = connection.cursor()
+  if genres == None:
+    query = f'''
+    SELECT DISTINCT (m.id),m.title,m.year,m.content_rating,m.lang,r.imdb_score AS imdb_rating,r.num_voted_users AS votes 
+    FROM movie m
+        JOIN rating r on (r.movie_id = m.id)
+    WHERE r.imdb_score >= {min_score}
+    ORDER BY r.imdb_score DESC, r.num_voted_users DESC;
+    '''
+    find_movies_cursor.execute(query)
+    movies_list = find_movies_cursor.fetchall()
+  else:
+    query = f'''
+    SELECT DISTINCT (m.id),m.title,m.year,m.content_rating,m.lang,r.imdb_score AS imdb_rating,r.num_voted_users AS votes 
+    FROM movie m
+        JOIN rating r on (r.movie_id = m.id)
+    WHERE r.imdb_score >= {min_score} ''' + create__genre_statements(genres)+'''
+    ORDER BY r.imdb_score DESC, r.num_voted_users DESC;
+    '''
+    find_movies_cursor.execute(query)
+    movies_list = find_movies_cursor.fetchall()   
+    
+  return movies_list
+
+def check_none(output_feature):
+#Function to check if eiteher imdb rating or genre is empty
+  if output_feature is None:
+    return ''
+  return str(output_feature) 
+
+def check_empty(output_feature):
+#Used to check if year or rating is empty
+  if output_feature is None:
+    return ''
+  return str(output_feature) + ', '
+
+def make_float(imdb_score):
+#Converts the imdb score to a float with .0 if it is an integer
+  if type(imdb_score) is int:
+    return round(float(imdb_score),1)
+  return imdb_score
+
+def print_movies(final_list):
+  movie_number = 1      
+  for m in final_list:                                                                                 
+    output = f"{str(movie_number)}. {m[1]} ({check_empty(m[2])}{check_empty(m[3])}{check_none(m[4])}) [{make_float(m[5])}, {m[6]}]"
+    print(output)
+    movie_number += 1
+
+if __name__ == '__main__':
+    
+  if len(sys.argv) < 3 :
+    print("Usage:",sys.argv[0],"Genres MinRating")
+    sys.exit(1)
+
+  genres = create_genre_list()
+  min_score = process_min_rating()
+  connection = None
+  try:
+    connection = sqlite3.connect('a2.db')
+    final_list = get_movies_list(connection,genres,min_score)
+    print_movies(final_list)
+
+  except Exception as err:
+    print("Unable to open up database:",err)
+  finally:
+    if connection is not None:
+      connection.close()
+    exit(1)
+  
+

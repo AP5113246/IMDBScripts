@@ -1,0 +1,168 @@
+#!/usr/bin/python3
+
+'''
+Plan for msearch is:
+
+  - Check for correct usage (./msearch string1 string2 string3 ) -- DONE
+    - If not correct then tell them to eat it
+    - Correct usage is a min of one string i,e len(sys.argv == 2) 
+   from typing import List
+  - normalise the strings from the input -- DONE
+
+normalise the strings from input
+
+  -Check to see if the actor, movie or director are in the db and if not then exit the program
+  -- DONE
+
+  -- First see if you can generate the output with one actor ID
+
+  -- NOTICE : Essentially only one query is needed for this whole thing because you're joining substring
+
+  For the output
+    -Output of multiple genres of a movies should be in one line delimited by a comma and sorted alphabetically
+    - Rows are ordered by year in descending order and then by IMDB rating (rows with empty rating at the end if any ) and finally by title (ascending)
+    --
+  Final  Out put: Movie, year, content rating, IMDB score and genres ( where title)
+
+
+EXTRA NOTES/IDEAS:
+  - refer to prac3 sql and prac4 for functions, aggregates and sqlite
+  - Look into Nanway's exercises/solutions https://drive.google.com/drive/folders/175YFmWO7mcsGdksphWf1XYevD07quyPo
+    . I like the way he's put the functions at the top of the file 
+
+
+'''
+
+
+import sqlite3,sys,string
+
+def sort_input():
+  entries = []
+  for sub_string in sys.argv[1:]:
+    entry = sub_string.strip('"').lower()
+    entries.append(entry)
+  return entries
+
+def check_entry_exists(connection,entry):
+  curr = connection.cursor()
+  query = '''
+  SELECT distinct(m.title) AS movie, d.name AS director, group_concat(a.name) AS actors
+  FROM movie m
+    LEFT JOIN director d on (d.id = m.director_id)
+    LEFT JOIN acting n on (m.id = n.movie_id)
+    LEFT JOIN actor a on (a.id = n.actor_id)
+  WHERE LIKE ('%{}%',lower(m.title))
+  OR LIKE ('%{}%',lower(d.name))
+  OR LIKE ('%{}%',lower(a.name))
+  GROUP BY m.title
+  '''.format(entry,entry,entry)
+
+  curr.execute(query)
+  res = curr.fetchone()
+  if res is None:
+    exit(1)
+  
+
+def create_where_statements(entries):
+    initial_statement = '''
+WHERE LIKE ('%{}%',lower(a.name)) 
+OR LIKE('%{}%',lower(d.name)) 
+OR LIKE('%{}%',lower(m.title))
+GROUP BY m.title'''.format(entries[0],entries[0],entries[0])
+
+    if(len(entries) == 1):
+        return initial_statement
+    else:
+        final_where_statement = initial_statement
+        for entry in entries[1:]:
+            extra_where = '''
+INTERSECT
+SELECT distinct(m.id), m.title, m.year, m.content_rating,r.imdb_score, group_concat(distinct(g.genre)) AS genres FROM movie m
+  LEFT JOIN acting n ON (n.movie_id=m.id)
+  LEFT JOIN actor a ON (n.actor_id = a.id)
+  LEFT JOIN director d ON (d.id = m.director_id)
+  LEFT JOIN rating r ON (r.movie_id = m.id)
+  LEFT JOIN genre g ON (g.movie_id=m.id)
+WHERE  LIKE ('%{}%',lower(a.name))
+  OR LIKE('%{}%',lower(d.name)) 
+  OR LIKE('%{}%',lower(m.title))
+GROUP BY m.title'''.format(entry,entry,entry)
+            final_where_statement += extra_where
+        
+        return final_where_statement
+      
+def get_movies_list(connection,entry):
+  find_movies_cursor = connection.cursor()
+  query = '''
+SELECT distinct(m.id),m.title, m.year, m.content_rating,r.imdb_score, group_concat(distinct(g.genre)) AS genres FROM movie m
+  LEFT JOIN acting n ON (n.movie_id=m.id)
+  LEFT JOIN actor a ON (n.actor_id = a.id)
+  LEFT JOIN director d ON (d.id = m.director_id)
+  LEFT JOIN rating r ON (r.movie_id = m.id)
+  LEFT JOIN genre g ON  (g.movie_id = m.id)''' + create_where_statements(entries) +'''
+ORDER BY m.year DESC,r.imdb_score DESC, m.title ASC '''
+  
+  find_movies_cursor.execute(query)
+  
+  movies_list = find_movies_cursor.fetchall()
+  return movies_list
+
+def make_float(imdb_score):
+#Converts the imdb score to a float with .0 if it is an integer
+  if type(imdb_score) is int:
+    return round(float(imdb_score),1)
+  return imdb_score
+
+     
+def check_none(output_feature):
+#Function to check if eiteher imdb rating or genre is empty
+  if output_feature is None:
+    return ''
+  return str(output_feature) 
+
+def check_empty(output_feature):
+#Used to check if year or rating is empty
+  if output_feature is None:
+    return ''
+  return str(output_feature) + ', '
+def print_movies(final_list):
+  movie_number = 1      
+  for m in final_list:
+    output = f"{str(movie_number)}. {m[1]} ({check_empty(m[2])}{check_empty(m[3])}{make_float(m[4])}) [{check_none(m[5])}]"
+    print(output)
+    movie_number += 1
+
+if __name__ == '__main__':
+    
+  if len(sys.argv) < 2 :
+      print("Usage:",sys.argv[0],"SUBSTRING-1 SUBSTRING-2 SUBSTRING-3 ....")
+      print("Please enter a movie, actor or director")
+      sys.exit(1)
+  
+  entries = sort_input()
+  connection = None
+
+  try:
+    connection = sqlite3.connect('a2.db')
+    for entry in entries :
+      check_entry_exists(connection,entry)
+
+    final_list = get_movies_list(connection,entry)
+    print_movies(final_list)
+    
+
+  except Exception as err:
+    print("Unable to open up databse:",err)
+  finally:
+    if connection is not None:
+      connection.close()
+    exit(1)
+
+    
+
+    
+
+    
+
+    
+    
