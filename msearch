@@ -1,38 +1,5 @@
 #!/usr/bin/python3
 
-'''
-Plan for msearch is:
-
-  - Check for correct usage (./msearch string1 string2 string3 ) -- DONE
-    - If not correct then tell them to eat it
-    - Correct usage is a min of one string i,e len(sys.argv == 2) 
-   from typing import List
-  - normalise the strings from the input -- DONE
-
-normalise the strings from input
-
-  -Check to see if the actor, movie or director are in the db and if not then exit the program
-  -- DONE
-
-  -- First see if you can generate the output with one actor ID
-
-  -- NOTICE : Essentially only one query is needed for this whole thing because you're joining substring
-
-  For the output
-    -Output of multiple genres of a movies should be in one line delimited by a comma and sorted alphabetically
-    - Rows are ordered by year in descending order and then by IMDB rating (rows with empty rating at the end if any ) and finally by title (ascending)
-    --
-  Final  Out put: Movie, year, content rating, IMDB score and genres ( where title)
-
-
-EXTRA NOTES/IDEAS:
-  - refer to prac3 sql and prac4 for functions, aggregates and sqlite
-  - Look into Nanway's exercises/solutions https://drive.google.com/drive/folders/175YFmWO7mcsGdksphWf1XYevD07quyPo
-    . I like the way he's put the functions at the top of the file 
-
-
-'''
-
 
 import sqlite3,sys,string
 
@@ -43,6 +10,8 @@ def sort_input():
     entries.append(entry)
   return entries
 
+
+# In retrospect this may have been an inefficient way of doing this.
 def check_entry_exists(connection,entry):
   curr = connection.cursor()
   query = '''
@@ -163,6 +132,37 @@ if __name__ == '__main__':
     
 
     
+# This was the plan for the assignment at the time
+    
+    '''
+Plan for msearch is:
 
-    
-    
+  - Check for correct usage (./msearch string1 string2 string3 ) -- DONE
+    - If not correct then tell them to eat it
+    - Correct usage is a min of one string i,e len(sys.argv == 2) 
+   from typing import List
+  - normalise the strings from the input -- DONE
+
+normalise the strings from input
+
+  -Check to see if the actor, movie or director are in the db and if not then exit the program
+  -- DONE
+
+  -- First see if you can generate the output with one actor ID
+
+  -- NOTICE : Essentially only one query is needed for this whole thing because you're joining substring
+
+  For the output
+    -Output of multiple genres of a movies should be in one line delimited by a comma and sorted alphabetically
+    - Rows are ordered by year in descending order and then by IMDB rating (rows with empty rating at the end if any ) and finally by title (ascending)
+    --
+  Final  Out put: Movie, year, content rating, IMDB score and genres ( where title)
+
+
+EXTRA NOTES/IDEAS:
+  - refer to prac3 sql and prac4 for functions, aggregates and sqlite
+  - Look into Nanway's exercises/solutions https://drive.google.com/drive/folders/175YFmWO7mcsGdksphWf1XYevD07quyPo
+    . I like the way he's put the functions at the top of the file 
+
+
+'''
